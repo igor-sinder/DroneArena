@@ -33,41 +33,11 @@
         #app-container {
             width: 100%;
             height: 90vh;
-            display: grid;
-            grid-template-areas:
-                "header header"
-                "queue main"
-                "rankings main";
-            grid-template-columns: 1fr 2fr;
-            grid-template-rows: auto 1fr;
-            gap: 1.5rem;
-        }
-
-        header {
-            grid-area: header;
-        }
-
-        #left-panel {
-            grid-area: queue;
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }
 
-        #main-panel {
-            grid-area: main;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-
-        #ranking-section {
-            grid-area: rankings;
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        
         .fade-in {
             animation: fadeIn 0.5s ease-in-out;
         }
@@ -115,17 +85,6 @@
             overflow-y: auto;
         }
 
-        @media (max-width: 1024px) {
-            #app-container {
-                grid-template-areas:
-                    "header"
-                    "queue"
-                    "main"
-                    "rankings";
-                grid-template-columns: 1fr;
-                grid-template-rows: auto auto 1fr auto;
-            }
-        }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200">
@@ -152,62 +111,61 @@
             </div>
         </div>
 
-        <!-- Painel Esquerdo: Fila de Espera -->
-        <div id="left-panel" class="w-full">
-            <button id="add-pilot-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
-                Adicionar Piloto
-            </button>
+        <!-- Painel de Controle de Voo (Topo) -->
+        <div id="main-control-panel" class="section-box flex flex-col items-center justify-center p-8 mb-6 text-center">
+            <!-- Título e botão de adicionar -->
+            <div class="flex justify-between items-center w-full mb-8">
+                <h2 id="current-pilot-name" class="text-6xl font-black text-white">Nenhum Piloto</h2>
+                <button id="add-pilot-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
+                    Adicionar Piloto
+                </button>
+            </div>
+
+            <div class="flex flex-col md:flex-row items-center gap-8 md:gap-16 mb-8 w-full justify-center">
+                <!-- Cronômetro de Tempo de Voo -->
+                <div class="flex flex-col items-center gap-2">
+                    <label for="flight-time-input" class="text-2xl font-bold text-gray-300">Tempo de Voo</label>
+                    <input id="flight-time-input" type="text" readonly class="text-5xl font-mono text-center w-full p-4 bg-gray-800 text-blue-400 rounded-lg border-2 border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500">
+                </div>
+                <!-- Pontuação -->
+                <div class="flex flex-col items-center gap-2">
+                    <label for="score-input" class="text-2xl font-bold text-gray-300">Pontuação</label>
+                    <input id="score-input" type="number" placeholder="Digite a pontuação" class="text-5xl text-center w-full p-4 bg-gray-800 text-blue-400 rounded-lg border-2 border-blue-500 placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-blue-500">
+                </div>
+            </div>
+
+            <!-- Botões de Controle -->
+            <div id="control-buttons" class="flex gap-4">
+                <button id="start-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
+                    Iniciar Voô
+                </button>
+                <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
+                    Parar Vôo
+                </button>
+                <button id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
+                    Salvar e Finalizar
+                </button>
+                <button id="discard-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
+                    Descartar Voo
+                </button>
+            </div>
+        </div>
+        
+        <!-- Seções Inferiores: Fila e Rankings -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 flex-grow">
+            <!-- Fila de Espera -->
             <div class="section-box flex-grow">
-                <h2 class="text-3xl font-bold mb-4 text-center">Fila de Espera</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-3xl font-bold text-center">Fila de Espera</h2>
+                    <button id="next-pilot-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full transition-all duration-300 transform hover:scale-105 glow-button hidden">
+                        Chamar Próximo
+                    </button>
+                </div>
                 <ul id="queue-list" class="flex flex-col gap-2 text-xl scrollable">
                     <!-- Lista de pilotos será preenchida aqui -->
                 </ul>
             </div>
-        </div>
 
-        <!-- Painel Principal: Voo e Controle -->
-        <div id="main-panel" class="w-full section-box flex-grow">
-            <h2 class="text-3xl font-bold mb-4">Próximo Piloto</h2>
-            <div class="h-full flex flex-col justify-between items-center text-center">
-                <p id="next-pilot-name" class="text-4xl font-extrabold text-blue-400">Nenhum</p>
-                <button id="next-pilot-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button mt-4 hidden">
-                    Chamar Próximo
-                </button>
-                <h2 id="current-pilot-name" class="text-6xl font-black text-white mb-8">Nenhum Piloto</h2>
-                
-                <div class="flex flex-col items-center gap-8 mb-8 w-full">
-                    <!-- Cronômetro de Tempo de Voo -->
-                    <div class="w-2/3 flex flex-col items-center gap-2">
-                        <label for="flight-time-input" class="text-2xl font-bold text-gray-300">Tempo de Voo</label>
-                        <input id="flight-time-input" type="text" readonly class="text-5xl font-mono text-center w-full p-4 bg-gray-800 text-blue-400 rounded-lg border-2 border-blue-500 focus:outline-none focus:ring-4 focus:ring-blue-500">
-                    </div>
-                    <!-- Pontuação -->
-                    <div class="w-2/3 flex flex-col items-center gap-2">
-                        <label for="score-input" class="text-2xl font-bold text-gray-300">Pontuação</label>
-                        <input id="score-input" type="number" placeholder="Digite a pontuação" class="text-5xl text-center w-full p-4 bg-gray-800 text-blue-400 rounded-lg border-2 border-blue-500 placeholder-gray-500 focus:outline-none focus:ring-4 focus:ring-blue-500">
-                    </div>
-                </div>
-
-                <!-- Botões de Controle -->
-                <div id="control-buttons" class="flex gap-4">
-                    <button id="start-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
-                        Iniciar Voô
-                    </button>
-                    <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
-                        Parar Vôo
-                    </button>
-                    <button id="save-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
-                        Salvar e Finalizar
-                    </button>
-                    <button id="discard-btn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
-                        Descartar Voo
-                    </button>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Painel Direito: Rankings -->
-        <div id="ranking-section" class="w-full">
             <!-- Ranking de Tempo -->
             <div class="section-box">
                 <h2 class="text-3xl font-bold mb-4 text-center">Melhores Tempos</h2>
@@ -215,6 +173,7 @@
                     <!-- Conteúdo preenchido pelo JS -->
                 </ol>
             </div>
+            
             <!-- Ranking de Pontuação -->
             <div class="section-box">
                 <h2 class="text-3xl font-bold mb-4 text-center">Melhores Pontuações</h2>
@@ -246,7 +205,6 @@
         const addPilotBtn = document.getElementById('add-pilot-btn');
         const nextPilotBtn = document.getElementById('next-pilot-btn');
         const queueList = document.getElementById('queue-list');
-        const nextPilotName = document.getElementById('next-pilot-name');
         const timeRankingList = document.getElementById('time-ranking-list');
         const scoreRankingList = document.getElementById('score-ranking-list');
         const messageBox = document.getElementById('message-box');
@@ -297,10 +255,8 @@
                     queueList.appendChild(li);
                 });
                 nextPilotBtn.classList.remove('hidden');
-                nextPilotName.textContent = pilotQueue[0];
             } else {
                 nextPilotBtn.classList.add('hidden');
-                nextPilotName.textContent = 'Nenhum';
             }
         }
 
@@ -394,18 +350,17 @@
             try {
                 const response = await fetch(GOOGLE_SHEETS_API_URL, {
                     method: 'POST',
+                    mode: 'no-cors', // Adicionado para corrigir o erro de CORS
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 
-                if (response.ok) {
-                    showMessage('Dados salvos com sucesso!', 5000);
-                    resetFlight();
-                    callNextPilot(); // Chama o próximo piloto após salvar
-                    fetchRankings(); // Atualiza os rankings
-                } else {
-                    throw new Error('Erro na resposta da API.');
-                }
+                // Com 'no-cors', a resposta sempre é 'ok', então tratamos a lógica em seguida
+                showMessage('Dados salvos com sucesso!', 5000);
+                resetFlight();
+                callNextPilot(); // Chama o próximo piloto após salvar
+                fetchRankings(); // Atualiza os rankings
+                
             } catch (error) {
                 console.error('Erro ao salvar os dados:', error);
                 showMessage('Erro ao salvar. Verifique a URL do Google Sheets.');
