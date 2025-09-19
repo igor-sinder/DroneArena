@@ -52,7 +52,7 @@
             border: 2px solid var(--cor-borda);
             border-radius: 1.5rem;
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
-            padding: 2.5rem;
+            padding: 2rem; /* Reduced padding */
             transition: all 0.3s ease-in-out;
             height: 100%;
             display: flex;
@@ -113,15 +113,20 @@
 
         <!-- Painel de Controle de Voo (Topo) -->
         <div id="main-control-panel" class="section-box flex flex-col items-center justify-center p-8 mb-6 text-center">
-            <!-- Título e botão de adicionar -->
-            <div class="flex justify-between items-center w-full mb-8">
+            <!-- Título e botões de adicionar/iniciar -->
+            <div class="flex justify-between items-center w-full mb-4">
                 <h2 id="current-pilot-name" class="text-6xl font-black text-white">Nenhum Piloto</h2>
-                <button id="add-pilot-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
-                    Adicionar Piloto
-                </button>
+                <div class="flex gap-4">
+                    <button id="add-pilot-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
+                        Adicionar Piloto
+                    </button>
+                    <button id="start-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
+                        Iniciar Voô
+                    </button>
+                </div>
             </div>
 
-            <div class="flex flex-col md:flex-row items-center gap-8 md:gap-16 mb-8 w-full justify-center">
+            <div class="flex flex-col md:flex-row items-center gap-6 md:gap-12 mb-4 w-full justify-center">
                 <!-- Cronômetro de Tempo de Voo -->
                 <div class="flex flex-col items-center gap-2">
                     <label for="flight-time-input" class="text-2xl font-bold text-gray-300">Tempo de Voo</label>
@@ -136,9 +141,6 @@
 
             <!-- Botões de Controle -->
             <div id="control-buttons" class="flex gap-4">
-                <button id="start-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 glow-button">
-                    Iniciar Voô
-                </button>
                 <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-8 rounded-full transition-all duration-300 transform hover:scale-105 hidden">
                     Parar Vôo
                 </button>
@@ -350,16 +352,15 @@
             try {
                 const response = await fetch(GOOGLE_SHEETS_API_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // Adicionado para corrigir o erro de CORS
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 
-                // Com 'no-cors', a resposta sempre é 'ok', então tratamos a lógica em seguida
                 showMessage('Dados salvos com sucesso!', 5000);
                 resetFlight();
-                callNextPilot(); // Chama o próximo piloto após salvar
-                fetchRankings(); // Atualiza os rankings
+                callNextPilot();
+                fetchRankings();
                 
             } catch (error) {
                 console.error('Erro ao salvar os dados:', error);
