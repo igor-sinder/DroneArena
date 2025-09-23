@@ -52,7 +52,7 @@
             border: 2px solid var(--cor-borda);
             border-radius: 1.5rem;
             box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5);
-            padding: 2rem; /* Reduced padding */
+            padding: 2rem;
             transition: all 0.3s ease-in-out;
             height: 100%;
             display: flex;
@@ -88,7 +88,6 @@
     </style>
 </head>
 <body class="bg-gray-900 text-gray-200">
-
     <div id="app-container" class="max-w-7xl mx-auto">
         <!-- Título Principal -->
         <header class="flex justify-between items-center mb-6">
@@ -112,7 +111,7 @@
         </div>
 
         <!-- Painel de Controle de Voo (Topo) -->
-        <div id="main-control-panel" class="section-box flex flex-col items-center justify-center p-8 mb-6 text-center">
+        <div id="main-control-panel" class="section-box flex flex-col items-center justify-center px-8 py-6 mb-6 text-center">
             <!-- Título e botões de adicionar/iniciar -->
             <div class="flex justify-between items-center w-full mb-4">
                 <h2 id="current-pilot-name" class="text-6xl font-black text-white">Nenhum Piloto</h2>
@@ -188,11 +187,33 @@
     </div>
 
     <!-- Script JavaScript -->
-    <script>
-        // URL de destino do seu Google Apps Script.
-        // SUBSTITUA ESTE VALOR PELA SUA URL DEPLOYED!
-        const GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/AKfycbxCmjwYKQ94oRaXi3Cts-Kd54heEWAY8EACpEMpLocNe1jKcIOaLbAFoZDAVFhmzNvyPg/exec";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, addDoc, onSnapshot, query, orderBy, limit, setDoc, deleteDoc, getDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // setLogLevel('debug'); // Descomente para ver logs de depuração do Firestore
+
+        // Variáveis globais do ambiente
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Inicializa o Firebase
+        let app = null;
+        let db = null;
+        let auth = null;
+        let userId = null;
+
+        try {
+            app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+        } catch (error) {
+            console.error("Erro ao inicializar o Firebase:", error);
+        }
+        
         // Referências aos elementos do DOM
         const registrationSection = document.getElementById('registration-section');
         const registrationForm = document.getElementById('registration-form');
@@ -212,11 +233,14 @@
         const messageBox = document.getElementById('message-box');
 
         // Variáveis de estado
-        let pilotQueue = [];
-        let currentPilot = null;
         let timer = null;
         let startTime = 0;
         let isSaving = false;
+
+        // Firestore collections
+        const queueCol = collection(db, 'artifacts', appId, 'public', 'data', 'queue');
+        const resultsCol = collection(db, 'artifacts', appId, 'public', 'data', 'results');
+        const currentSessionDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'current_session', 'current_pilot');
 
         /**
          * Exibe uma mensagem na tela por um tempo limitado.
@@ -233,51 +257,55 @@
         }
 
         /**
-         * Adiciona um piloto à fila de espera.
+         * Adiciona um piloto à fila no Firestore.
          */
-        function addToQueue(name) {
-            pilotQueue.push(name);
-            updateQueueDisplay();
-            showMessage(`Piloto ${name} adicionado à fila!`);
-            if (!currentPilot) {
-                callNextPilot();
+        async function addToQueue(name) {
+            try {
+                // Adiciona o piloto na fila
+                await addDoc(queueCol, { name: name, timestamp: new Date().toISOString() });
+                showMessage(`Piloto ${name} adicionado à fila!`);
+
+                // Verifica se o piloto atual está vazio e chama o próximo
+                const currentPilotDoc = await getDoc(currentSessionDocRef);
+                if (!currentPilotDoc.exists() || currentPilotDoc.data().pilot_name === 'Nenhum Piloto') {
+                    await callNextPilot();
+                }
+
+            } catch (e) {
+                console.error("Erro ao adicionar piloto à fila: ", e);
+                showMessage("Erro ao adicionar piloto.");
             }
         }
-
+        
         /**
-         * Atualiza a exibição da fila de espera.
+         * Chama o próximo piloto da fila.
          */
-        function updateQueueDisplay() {
-            queueList.innerHTML = '';
-            if (pilotQueue.length > 0) {
-                pilotQueue.forEach(pilot => {
-                    const li = document.createElement('li');
-                    li.textContent = pilot;
-                    li.className = "p-2 bg-gray-700 rounded-lg text-center font-semibold";
-                    queueList.appendChild(li);
-                });
-                nextPilotBtn.classList.remove('hidden');
-            } else {
-                nextPilotBtn.classList.add('hidden');
-            }
-        }
-
-        /**
-         * Chama o próximo piloto da fila e o coloca na tela principal.
-         */
-        function callNextPilot() {
-            if (pilotQueue.length > 0) {
-                currentPilot = pilotQueue.shift();
-                currentPilotName.textContent = currentPilot;
-                updateQueueDisplay();
-                resetFlight();
-                startBtn.classList.remove('hidden');
-                saveBtn.classList.add('hidden');
-                discardBtn.classList.add('hidden');
-            } else {
-                currentPilot = null;
-                currentPilotName.textContent = 'Nenhum Piloto';
-                showMessage('A fila está vazia. Adicione novos pilotos.');
+        async function callNextPilot() {
+            try {
+                const q = query(queueCol, orderBy('timestamp'), limit(1));
+                const snapshot = await getDocs(q);
+                
+                if (snapshot.docs.length > 0) {
+                    const nextDoc = snapshot.docs[0];
+                    const nextPilot = nextDoc.data();
+                    
+                    // Atualiza o piloto atual no Firestore
+                    await setDoc(currentSessionDocRef, {
+                        pilot_name: nextPilot.name,
+                        status: 'in_flight',
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // Remove o piloto da fila
+                    await deleteDoc(nextDoc.ref);
+                } else {
+                    // Limpa o piloto atual se a fila estiver vazia
+                    await setDoc(currentSessionDocRef, { pilot_name: 'Nenhum Piloto', status: 'empty' });
+                    showMessage('A fila está vazia. Adicione novos pilotos.');
+                }
+            } catch (e) {
+                console.error("Erro ao chamar o próximo piloto: ", e);
+                showMessage("Erro ao chamar o próximo piloto.");
             }
         }
 
@@ -285,7 +313,7 @@
          * Inicia o cronômetro para o tempo de voo.
          */
         function startFlight() {
-            if (!currentPilot) {
+            if (currentPilotName.textContent === 'Nenhum Piloto') {
                 showMessage('Nenhum piloto selecionado.');
                 return;
             }
@@ -325,16 +353,16 @@
         }
 
         /**
-         * Salva o resultado do voo e envia para a planilha.
+         * Salva o resultado do voo no Firestore e chama o próximo.
          */
         async function saveResult() {
             if (isSaving) return;
 
-            const pilotName = currentPilot;
+            const pilotName = currentPilotName.textContent;
             const flightTime = parseFloat(flightTimeInput.value);
             const score = parseInt(scoreInput.value);
 
-            if (!pilotName || isNaN(flightTime) || isNaN(score) || score < 0) {
+            if (pilotName === 'Nenhum Piloto' || isNaN(flightTime) || isNaN(score) || score < 0) {
                 showMessage('Por favor, preencha o tempo e a pontuação.');
                 return;
             }
@@ -346,89 +374,139 @@
             const data = {
                 nome: pilotName,
                 tempo: flightTime,
-                pontuacao: score
+                pontuacao: score,
+                timestamp: new Date().toISOString()
             };
 
             try {
-                const response = await fetch(GOOGLE_SHEETS_API_URL, {
-                    method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
-                
+                await addDoc(resultsCol, data);
                 showMessage('Dados salvos com sucesso!', 5000);
-                resetFlight();
-                callNextPilot();
-                fetchRankings();
-                
             } catch (error) {
                 console.error('Erro ao salvar os dados:', error);
-                showMessage('Erro ao salvar. Verifique a URL do Google Sheets.');
+                showMessage('Erro ao salvar. Verifique a conexão.');
             } finally {
                 isSaving = false;
                 saveBtn.textContent = 'Salvar e Finalizar';
                 saveBtn.disabled = false;
-            }
-        }
-
-        /**
-         * Busca os rankings atualizados da planilha.
-         */
-        async function fetchRankings() {
-            try {
-                const response = await fetch(GOOGLE_SHEETS_API_URL);
-                const data = await response.json();
-                
-                if (Array.isArray(data)) {
-                    const timeRanking = data.sort((a, b) => a.tempo - b.tempo).slice(0, 5);
-                    const scoreRanking = data.sort((a, b) => b.pontuacao - a.pontuacao).slice(0, 5);
-
-                    updateRankingDisplay(timeRankingList, timeRanking.map(item => `${item.nome}: ${item.tempo}s`));
-                    updateRankingDisplay(scoreRankingList, scoreRanking.map(item => `${item.nome}: ${item.pontuacao} pts`));
-                } else {
-                    console.error("A resposta da API não é um array:", data);
-                    showMessage("Erro ao carregar os rankings.");
-                }
-                
-            } catch (error) {
-                console.error('Erro ao buscar rankings:', error);
-                showMessage('Erro ao carregar rankings.');
+                callNextPilot(); // Chama o próximo piloto após salvar
             }
         }
         
         /**
-         * Atualiza a exibição de um ranking específico.
+         * Descartar o voo atual.
          */
-        function updateRankingDisplay(listElement, items) {
-            listElement.innerHTML = '';
-            if (items.length > 0) {
-                items.forEach((item, index) => {
-                    const li = document.createElement('li');
-                    li.textContent = `${index + 1}. ${item}`;
-                    li.className = "flex justify-between items-center bg-gray-700 p-3 rounded-lg font-semibold";
-                    listElement.appendChild(li);
-                });
-            } else {
-                 listElement.innerHTML = '<li class="text-center italic text-gray-400">Nenhum resultado ainda.</li>';
+        function discardFlight() {
+            resetFlight();
+            callNextPilot();
+            showMessage('Voo descartado. Chamando próximo piloto.');
+        }
+
+        // --- LISTENERS DO FIRESTORE EM TEMPO REAL ---
+        function setupFirestoreListeners() {
+            console.log("Configurando listeners do Firestore...");
+
+            // Listener para a Fila de Espera
+            onSnapshot(query(queueCol, orderBy('timestamp')), (snapshot) => {
+                queueList.innerHTML = '';
+                const queue = snapshot.docs.map(doc => doc.data().name);
+                if (queue.length > 0) {
+                    queue.forEach(pilot => {
+                        const li = document.createElement('li');
+                        li.textContent = pilot;
+                        li.className = "p-2 bg-gray-700 rounded-lg text-center font-semibold";
+                        queueList.appendChild(li);
+                    });
+                    nextPilotBtn.classList.remove('hidden');
+                } else {
+                    nextPilotBtn.classList.add('hidden');
+                     queueList.innerHTML = '<li class="text-center italic text-gray-400">Nenhum piloto na fila.</li>';
+                }
+            });
+            
+            // Listener para o Piloto Atual
+            onSnapshot(currentSessionDocRef, (doc) => {
+                if (doc.exists()) {
+                    const data = doc.data();
+                    if (data.pilot_name) {
+                        currentPilotName.textContent = data.pilot_name;
+                        if (data.status === 'in_flight') {
+                          resetFlight();
+                        }
+                    }
+                } else {
+                    currentPilotName.textContent = 'Nenhum Piloto';
+                    resetFlight();
+                }
+            });
+
+            // Listener para o Ranking de Tempo
+            onSnapshot(query(resultsCol, orderBy('tempo'), limit(5)), (snapshot) => {
+                timeRankingList.innerHTML = '';
+                const rankings = snapshot.docs.map(doc => doc.data());
+                if (rankings.length > 0) {
+                    rankings.forEach((item, index) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${index + 1}. ${item.nome}: ${item.tempo}s`;
+                        li.className = "flex justify-between items-center bg-gray-700 p-3 rounded-lg font-semibold";
+                        timeRankingList.appendChild(li);
+                    });
+                } else {
+                     timeRankingList.innerHTML = '<li class="text-center italic text-gray-400">Nenhum resultado ainda.</li>';
+                }
+            });
+
+            // Listener para o Ranking de Pontuação
+            onSnapshot(query(resultsCol, orderBy('pontuacao', 'desc'), limit(5)), (snapshot) => {
+                scoreRankingList.innerHTML = '';
+                const rankings = snapshot.docs.map(doc => doc.data());
+                if (rankings.length > 0) {
+                    rankings.forEach((item, index) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${index + 1}. ${item.nome}: ${item.pontuacao} pts`;
+                        li.className = "flex justify-between items-center bg-gray-700 p-3 rounded-lg font-semibold";
+                        scoreRankingList.appendChild(li);
+                    });
+                } else {
+                     scoreRankingList.innerHTML = '<li class="text-center italic text-gray-400">Nenhum resultado ainda.</li>';
+                }
+            });
+        }
+        
+        // Autenticação e inicialização
+        window.onload = async function() {
+            try {
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+                userId = auth.currentUser.uid;
+                console.log("Autenticado. User ID:", userId);
+
+                // Inicia os listeners e o fluxo principal após a autenticação
+                setupFirestoreListeners();
+                
+                // Verifica se a tela de voo está vazia ao iniciar e chama o primeiro piloto da fila, se houver
+                const currentPilotDoc = await getDoc(currentSessionDocRef);
+                if (!currentPilotDoc.exists() || currentPilotDoc.data().pilot_name === 'Nenhum Piloto') {
+                     callNextPilot();
+                }
+
+            } catch (error) {
+                console.error("Erro na autenticação ou inicialização:", error);
             }
         }
         
         // Event Listeners
-        document.addEventListener('DOMContentLoaded', () => {
-            fetchRankings();
-            setInterval(fetchRankings, 30000); // Atualiza os rankings a cada 30 segundos
-        });
-        
         addPilotBtn.addEventListener('click', () => {
             registrationSection.classList.remove('hidden');
         });
         
-        registrationForm.addEventListener('submit', (e) => {
+        registrationForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const pilotName = pilotNameInput.value.trim();
             if (pilotName) {
-                addToQueue(pilotName);
+                await addToQueue(pilotName);
                 pilotNameInput.value = '';
                 registrationSection.classList.add('hidden');
             } else {
@@ -439,12 +517,8 @@
         startBtn.addEventListener('click', startFlight);
         stopBtn.addEventListener('click', stopFlight);
         saveBtn.addEventListener('click', saveResult);
+        discardBtn.addEventListener('click', discardFlight);
         nextPilotBtn.addEventListener('click', callNextPilot);
-        discardBtn.addEventListener('click', () => {
-            resetFlight();
-            callNextPilot();
-            showMessage('Voo descartado. Chamando próximo piloto.');
-        });
     </script>
 </body>
 </html>
